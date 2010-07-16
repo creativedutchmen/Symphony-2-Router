@@ -12,10 +12,15 @@ Requirements: Symphony 2.0.7
 2. Enable it by selecting "URL Router" on the "System -> Extensions" page, choosing "Enable" from the with-selected menu, and clicking "Apply".
 
 3. Add your rules to the "System -> Preferences" page.
+	
 
 ### Notes ###
 
 ### Changelog ###
+
+0.4 ([Huib Keemink](http://creativedutchmen.com)):
+* Cleaned up save code
+* Added per filter redirect option. (used to be a plugin wide setting)
 
 0.3 ([Max Wheeler](http://makenosound.com)):
 

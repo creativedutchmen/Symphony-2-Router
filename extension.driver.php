@@ -57,28 +57,38 @@
 		public function save($context) {
 			$routes = array();
 			$route = array();
-			foreach($context['settings']['router']['routes'] as $item) {
-				if(isset($item['from'])) {
-					$route['from'] = $item['from'];
-				} else if(isset($item['to'])) {
-					$route['to'] = $item['to'];
-					$routes[] = $route;
-					$route = array();
+			
+			// Copied the functionality from the sections page.
+			// This meant I could not use the normal settings functionality from symphony.
+			// There probably is a better way, but I could not find it.
+			
+			if(is_array($_POST['fields'])){
+				foreach($_POST['fields'] as $post_values){
+					if(is_array($post_values)){
+						foreach($post_values as $key => $val){
+							if($key == 'router'){
+								if($val['redirect'] != 'yes'){
+									$val['redirect'] = 'no';
+								}
+								$routes[] = $val;
+							}
+						}
+					}
 				}
 			}
-
+			
 			$this->_Parent->Database->query("DELETE FROM tbl_router");
-			$this->_Parent->Database->insert($routes, "tbl_router");
+			if(!empty($routes)){
+				$this->_Parent->Database->insert($routes, "tbl_router");
+			}
+			
 			unset($context['settings']['router']['routes']);
 			
-			if(!is_array($context['settings'])) $context['settings'] = array('router' => array('redirect' => 'no'));
-			
-			elseif(!isset($context['settings']['router']['redirect'])){
-				$context['settings']['router'] = array('redirect' => 'no');
-			}
 		}
 
 		public function addCustomPreferenceFieldsets($context){
+			
+			$i = -1;
 			$fieldset = new XMLElement('fieldset');
 			$fieldset->setAttribute('class', 'settings');
 			$fieldset->appendChild(new XMLElement('legend', 'Regex URL re-routing'));
@@ -88,32 +98,43 @@
 			$fieldset->appendChild($p);
 
 			$group = new XMLElement('div');
-			$group->setAttribute('class', 'subsection');
-			$group->appendChild(new XMLElement('h3', __('URL Schema Rules')));
+			$h3 = new XMLElement('h3', __('URL Schema Rules'));
+			$h3->setAttribute('class', 'label');
+			$group->appendChild($h3);
  
 			$ol = new XMLElement('ol');
-			$ol->setAttribute('id', 'router');
+			$ol->setAttribute('id', 'fields-duplicator');
+			$ol->setAttribute('class', 'orderable duplicator');
 			$li = new XMLElement('li');
 			$li->setAttribute('class', 'template');
 			$labelfrom = Widget::Label(__('From'));
-           	$labelfrom->appendChild(Widget::Input("settings[router][routes][][from]", "From"));
+           	$labelfrom->appendChild(Widget::Input("fields[$i][router][from]", "From"));
             $labelto = Widget::Label(__('To'));
-            $labelto->appendChild(Widget::Input("settings[router][routes][][to]", "To"));
+            $labelto->appendChild(Widget::Input("fields[$i][router][to]", "To"));
 			$divgroup = new XMLElement('div');
 			$divgroup->setAttribute('class', 'group');
 			$divgroup->appendChild($labelfrom);
 			$divgroup->appendChild($labelto);
-	
 			$divcontent = new XMLElement('div');
 			$divcontent->setAttribute('class', 'content');
-			$divcontent->appendChild($divgroup);			
-
+						
+			//add checkbox per item, instead of per all.
+			$labelcheck = Widget::Label();
+			$inputcheck = Widget::Input("fields[$i][router][redirect]", 'yes', 'checkbox');
+			$labelcheck->setValue($inputcheck->generate() . ' ' . __('Redirect legacy URLs to new destination'));
+			
+			$divcontent->appendChild($divgroup);
+			
+			$divcontent->appendChild($labelcheck);
+			$divcontent->appendChild(new XMLElement('p', __('Redirects requests to the new destination instead of just displaying the content under the legacy URL.'), array('class' => 'help')));
+			
+								
 			$li->appendChild(new XMLElement('h4', "Route"));
 			$li->appendChild($divcontent);
 			$ol->appendChild($li);
+			$i++;
 			if($routes = $this->getRoutes()) {
 				if(is_array($routes)) {
-					$i = 1;
 					foreach($routes as $route) {
 						$li = new XMLElement('li');
 						$li->setAttribute('class', 'instance expanded');
@@ -125,12 +146,25 @@
 						$divgroup = new XMLElement('div');
 						$divgroup->setAttribute('class', 'group');
 						$labelfrom = Widget::Label(__('From'));
-						$labelfrom->appendChild(Widget::Input("settings[router][routes][][from]", General::sanitize($route['from'])));
+						$labelfrom->appendChild(Widget::Input("fields[$i][router][from]", General::sanitize($route['from'])));
 						$labelto = Widget::Label(__('To'));
-						$labelto->appendChild(Widget::Input("settings[router][routes][][to]", General::sanitize($route['to'])));
+						$labelto->appendChild(Widget::Input("fields[$i][router][to]", General::sanitize($route['to'])));
 						$divgroup->appendChild($labelfrom);
 						$divgroup->appendChild($labelto);
+						
+						//place redirect checkbox in each box.
+						$labelcheck = Widget::Label();
+						$inputcheck = Widget::Input("fields[$i][router][redirect]", 'yes', 'checkbox');
+						if($this->getRedirect($i) == true){
+							$inputcheck->setAttribute('checked','checked');
+						}
+						$labelcheck->setValue($inputcheck->generate() . ' ' . __('Redirect legacy URLs to new destination'));
+						
 						$divcontent->appendChild($divgroup);
+						
+						$divcontent->appendChild($labelcheck);
+						$divcontent->appendChild(new XMLElement('p', __('Redirects requests to the new destination instead of just displaying the content under the legacy URL.'), array('class' => 'help')));
+												
 						$li->appendChild($divcontent);
 						$ol->appendChild($li);
 						$i++;
@@ -139,31 +173,40 @@
 			}
 			$group->appendChild($ol);
 			
-			$label = Widget::Label();
-			$input = Widget::Input('settings[router][redirect]', 'yes', 'checkbox');
-			if($this->_Parent->Configuration->get('redirect', 'router') == 'yes') $input->setAttribute('checked', 'checked');
-			$label->setValue($input->generate() . ' ' . __('Redirect legacy URLs to new destination'));
-			$fieldset->appendChild($label);
-			
-			$fieldset->appendChild(new XMLElement('p', __('Redirects requests to the new destination instead of just displaying the content under the legacy URL.'), array('class' => 'help')));
-			
 			$fieldset->appendChild($group);
 			$context['wrapper']->appendChild($fieldset);	
+		}
+		
+		public function getRedirect($route_nr){
+			$routes = $this->getRoutes();
+			if(isset($routes[$route_nr-1])){
+				if($routes[$route_nr-1]['redirect'] == 'yes'){
+					return true;
+				}
+				else{
+					return false;
+				}
+			}
+			else{
+				return false;
+			}
 		}
 
 		public function frontendPrePageResolve($context) {
 			$routes = $this->getRoutes();
 			$url = $context['page'];
 			$matches = array();
+			$i = 1;
 			foreach($routes as $route) {
 				if(preg_match($route['from'], $url, &$matches) == 1) {
 					$new_url = preg_replace($route['from'], $route['to'], $url);
-					if($this->_Parent->Configuration->get('redirect', 'router') == 'yes') {
+					if($this->getRedirect($i)){
 						header("Location:" . $new_url);
 						die();
 					}
 					break;
 				}
+				$i++;
 			}
 			if($new_url) $context['page'] = $new_url;
 		}
