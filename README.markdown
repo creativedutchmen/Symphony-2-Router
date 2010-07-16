@@ -19,6 +19,7 @@ Requirements: Symphony 2.0.7
 ### Changelog ###
 
 0.4 ([Huib Keemink](http://creativedutchmen.com)):
+
 * Cleaned up save code
 * Added per filter redirect option. (used to be a plugin wide setting)
 
