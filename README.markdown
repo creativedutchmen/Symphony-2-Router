@@ -1,8 +1,8 @@
 ## URL Router ##
 
-Version: 0.3  
+Version: 0.4  
 Author: [Rob Philp](robert.h.philp@gmail.com)  
-Build Date: 2010-04-07  
+Build Date: 2010-07-14  
 Requirements: Symphony 2.0.7  
 
 ### Installation ###
